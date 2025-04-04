@@ -1,0 +1,7 @@
+{
+  "name": "location-search",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
