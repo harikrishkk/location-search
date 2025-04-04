@@ -1,20 +1,25 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
+    <ion-title>Location Search</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content>
+  <div class="search-container">
+    <ion-searchbar
+      [(ngModel)]="searchQuery"
+      (ionInput)="onSearchChange($event)"
+      placeholder="Search for a location"
+      animated="true"
+      debounce="300"
+    ></ion-searchbar>
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+    <ion-list *ngIf="searchResults.length > 0" class="search-results">
+      <ion-item *ngFor="let result of searchResults" (click)="selectLocation(result)" button>
+        <ion-label>{{ result.description }}</ion-label>
+      </ion-item>
+    </ion-list>
   </div>
+
+  <capacitor-google-map #map id="map"></capacitor-google-map>
 </ion-content>
