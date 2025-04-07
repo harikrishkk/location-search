@@ -1,11 +1,13 @@
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA, OnDestroy } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GoogleMap } from '@capacitor/google-maps';
-import { environment } from '../../environments/environment';
-import { LocationService, Location } from '../services/location.service';
+import { LocationService } from '../services/location.service';
 import { SearchbarCustomEvent } from '@ionic/angular';
+import { MapsService, MapLocation } from '../services/maps.service';
+import { PlatformService } from '../services/platform.service';
+import { takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-home',
@@ -15,48 +17,36 @@ import { SearchbarCustomEvent } from '@ionic/angular';
   imports: [IonicModule, CommonModule, FormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
-export class HomePage {
+export class HomePage implements OnDestroy {
   @ViewChild('map') mapRef!: ElementRef;
-  map: GoogleMap | null = null;
-  currentMarkerId: string | null = null;
   searchResults: google.maps.places.AutocompletePrediction[] = [];
   searchQuery = '';
+  private destroy$ = new Subject<void>();
 
-  constructor(private locationService: LocationService) {}
+  constructor(
+    private locationService: LocationService,
+    private mapsService: MapsService,
+    private platformService: PlatformService
+  ) {}
 
   async ionViewDidEnter() {
-    await this.createMap();
+    if (this.mapRef?.nativeElement) {
+      await this.mapsService.createMap(this.mapRef.nativeElement);
+      
+      // Enable location tracking if on mobile
+      if (this.platformService.isNative()) {
+        await this.mapsService.enableCurrentLocation();
+      }
+    }
   }
 
-  async createMap() {
-    if (!this.mapRef) return;
+  ionViewWillLeave() {
+    this.mapsService.destroy();
+  }
 
-    try {
-      this.map = await GoogleMap.create({
-        id: 'map',
-        element: this.mapRef.nativeElement,
-        apiKey: environment.googleMapsApiKey,
-        config: {
-          center: {
-            lat: 37.7749,
-            lng: -122.4194
-          },
-          zoom: 12
-        }
-      });
-
-      // Add a marker for initial position
-      const markerId = await this.map.addMarker({
-        coordinate: {
-          lat: 37.7749,
-          lng: -122.4194
-        },
-        title: 'Initial Location'
-      });
-      this.currentMarkerId = markerId;
-    } catch (error) {
-      console.error('Error creating map:', error);
-    }
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   async onSearchChange(event: SearchbarCustomEvent) {
@@ -84,34 +74,10 @@ export class HomePage {
     }
   }
 
-  private async updateMapLocation(location: Location) {
-    if (!this.map) return;
-
+  private async updateMapLocation(location: MapLocation) {
     try {
-      // Remove existing marker
-      if (this.currentMarkerId) {
-        await this.map.removeMarker(this.currentMarkerId);
-      }
-
-      // Add new marker
-      const markerId = await this.map.addMarker({
-        coordinate: {
-          lat: location.lat,
-          lng: location.lng
-        },
-        title: location.address
-      });
-      this.currentMarkerId = markerId;
-
-      // Update camera
-      await this.map.setCamera({
-        coordinate: {
-          lat: location.lat,
-          lng: location.lng
-        },
-        zoom: 15,
-        animate: true
-      });
+      await this.mapsService.addMarker(location);
+      await this.mapsService.setCamera(location);
     } catch (error) {
       console.error('Error updating map location:', error);
     }

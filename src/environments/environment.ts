@@ -4,7 +4,12 @@
 
 export const environment = {
   production: false,
-  googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY' // Replace with your actual API key
+  // For development, you can hardcode the key here
+  // For production, use different environment files
+  googleMapsApiKey: 'YOUR_API_KEY_HERE',
+  // Add other environment-specific configurations
+  apiUrl: 'http://localhost:3000',
+  platform: 'web' // 'web' | 'android' | 'ios'
 };
 
 /*
