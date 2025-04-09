@@ -15,7 +15,11 @@
     ></ion-searchbar>
 
     <ion-list *ngIf="searchResults.length > 0" class="search-results">
-      <ion-item *ngFor="let result of searchResults" (click)="selectLocation(result)" button>
+      <ion-item
+        *ngFor="let result of searchResults"
+        (click)="selectLocation(result)"
+        button
+      >
         <ion-label>{{ result.description }}</ion-label>
       </ion-item>
     </ion-list>

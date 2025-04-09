@@ -5,6 +5,7 @@ export interface Location {
   address: string;
   lat: number;
   lng: number;
+  radius?: number;
 }
 
 @Injectable({
@@ -48,7 +49,8 @@ export class LocationService {
             resolve({
               address: place.formatted_address,
               lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng()
+              lng: place.geometry.location.lng(),
+              radius: 1000 // Default radius of 1000 meters
             });
           } else {
             reject(status);

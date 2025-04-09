@@ -19,8 +19,10 @@ export class HomePage {
   @ViewChild('map') mapRef!: ElementRef;
   map: GoogleMap | null = null;
   currentMarkerId: string | null = null;
+  currentCircleId: string | null = null;
   searchResults: google.maps.places.AutocompletePrediction[] = [];
   searchQuery = '';
+  selectedLocation: Location | null = null;
 
   constructor(private locationService: LocationService) {}
 
@@ -76,6 +78,7 @@ export class HomePage {
   async selectLocation(prediction: google.maps.places.AutocompletePrediction) {
     try {
       const location = await this.locationService.getPlaceDetails(prediction.place_id);
+      this.selectedLocation = location;
       await this.updateMapLocation(location);
       this.searchResults = [];
       this.searchQuery = prediction.description;
@@ -84,13 +87,23 @@ export class HomePage {
     }
   }
 
+  async updateRadius(event: any) {
+    if (!this.selectedLocation) return;
+    
+    this.selectedLocation.radius = event.detail.value;
+    await this.updateMapLocation(this.selectedLocation);
+  }
+
   private async updateMapLocation(location: Location) {
     if (!this.map) return;
 
     try {
-      // Remove existing marker
+      // Remove existing marker and circle
       if (this.currentMarkerId) {
         await this.map.removeMarker(this.currentMarkerId);
+      }
+      if (this.currentCircleId) {
+        await this.map.removeCircles([this.currentCircleId]);
       }
 
       // Add new marker
@@ -102,6 +115,22 @@ export class HomePage {
         title: location.address
       });
       this.currentMarkerId = markerId;
+
+      // Add circle for radius
+      if (location.radius) {
+        const [circleId] = await this.map.addCircles([{
+          center: {
+            lat: location.lat,
+            lng: location.lng
+          },
+          radius: location.radius,
+          strokeColor: '#3880ff',
+          strokeWeight: 2,
+          fillColor: '#3880ff',
+          fillOpacity: 0.1
+        }]);
+        this.currentCircleId = circleId;
+      }
 
       // Update camera
       await this.map.setCamera({
