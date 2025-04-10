@@ -9,6 +9,7 @@
     <ion-searchbar
       [(ngModel)]="searchQuery"
       (ionInput)="onSearchChange($event)"
+      (ionClear)="removeLocation()"
       placeholder="Search for a location"
       animated="true"
       debounce="300"
@@ -38,6 +39,14 @@
             <p *ngIf="selectedLocation.country">Country: {{ selectedLocation.country }}</p>
             <p>Coordinates: {{ selectedLocation.lat }}, {{ selectedLocation.lng }}</p>
           </ion-label>
+          <ion-button 
+            fill="clear" 
+            color="danger" 
+            slot="end"
+            (click)="removeLocation()"
+          >
+            <ion-icon name="close-circle" slot="icon-only"></ion-icon>
+          </ion-button>
         </ion-item>
       </ion-card-content>
     </ion-card>

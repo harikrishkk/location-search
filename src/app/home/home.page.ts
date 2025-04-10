@@ -79,6 +79,31 @@ export class HomePage {
     }
   }
 
+  async removeLocation() {
+    try {
+      if (this.currentMarkerId && this.map) {
+        await this.map.removeMarker(this.currentMarkerId);
+        this.currentMarkerId = null;
+      }
+      this.selectedLocation = null;
+      this.searchQuery = '';
+      
+      // Reset map to default view
+      if (this.map) {
+        await this.map.setCamera({
+          coordinate: {
+            lat: 37.7749,
+            lng: -122.4194
+          },
+          zoom: 12,
+          animate: true
+        });
+      }
+    } catch (error) {
+      console.error('Error removing location:', error);
+    }
+  }
+
   private async updateMapLocation(location: Location) {
     if (!this.map) return;
 
