@@ -20,7 +20,10 @@
         (click)="selectLocation(result)"
         button
       >
-        <ion-label>{{ result.description }}</ion-label>
+        <ion-label class="ion-text-wrap">
+          <h2>{{ result.description }}</h2>
+          <p>{{ result.structured_formatting?.secondary_text }}</p>
+        </ion-label>
       </ion-item>
     </ion-list>
 

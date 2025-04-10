@@ -66,16 +66,16 @@ export class HomePage {
 
   async selectLocation(prediction: google.maps.places.AutocompletePrediction) {
     try {
-      const location = await this.locationService.getPlaceDetails(prediction.place_id);
+      const location = await this.locationService.getLocationDetails(prediction.place_id);
       this.selectedLocation = location;
       await this.updateMapLocation(location);
       this.searchResults = [];
-      this.searchQuery = prediction.description;
+      this.searchQuery = location.address;
       
       // Here you can add code to store the location in your database
       console.log('Selected location details:', location);
     } catch (error) {
-      console.error('Error getting place details:', error);
+      console.error('Error getting location details:', error);
     }
   }
 
