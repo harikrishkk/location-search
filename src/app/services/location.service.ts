@@ -5,7 +5,9 @@ export interface Location {
   address: string;
   lat: number;
   lng: number;
-  radius?: number;
+  city?: string;
+  state?: string;
+  country?: string;
 }
 
 @Injectable({
@@ -43,14 +45,35 @@ export class LocationService {
       const service = new google.maps.places.PlacesService(map);
       
       service.getDetails(
-        { placeId, fields: ['formatted_address', 'geometry'] },
+        { 
+          placeId, 
+          fields: [
+            'formatted_address', 
+            'geometry',
+            'address_components'
+          ] 
+        },
         (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && place && place.formatted_address && place.geometry?.location) {
+            const city = place.address_components?.find(
+              component => component.types.includes('locality')
+            )?.long_name;
+
+            const state = place.address_components?.find(
+              component => component.types.includes('administrative_area_level_1')
+            )?.long_name;
+
+            const country = place.address_components?.find(
+              component => component.types.includes('country')
+            )?.long_name;
+
             resolve({
               address: place.formatted_address,
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
-              radius: 1000 // Default radius of 1000 meters
+              city,
+              state,
+              country
             });
           } else {
             reject(status);

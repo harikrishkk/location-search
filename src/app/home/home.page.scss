@@ -66,6 +66,33 @@ ion-searchbar {
   z-index: 1000;
 }
 
+.location-details {
+  margin: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  ion-item {
+    --padding-start: 0;
+    --inner-padding-end: 0;
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    margin: 4px 0;
+  }
+
+  ion-range {
+    padding: 8px 0;
+  }
+}
+
 .radius-control {
   background: white;
   margin-top: 10px;
