@@ -28,6 +28,41 @@ export interface Location {
   lat: number;
   lng: number;
   place_id: string;
+  
+  // Administrative divisions (from largest to smallest)
+  country?: string;
+  country_code?: string;
+  
+  // State/Province/Region
+  administrative_area_level_1?: string;
+  administrative_area_level_1_code?: string;
+  
+  // County/District
+  administrative_area_level_2?: string;
+  
+  // Sub-district/City-division
+  administrative_area_level_3?: string;
+  
+  // Neighborhood/Ward/Borough
+  administrative_area_level_4?: string;
+  
+  // Sub-neighborhood/Village
+  administrative_area_level_5?: string;
+  
+  // City/Town and subdivisions
+  locality?: string;           // City/Town
+  sublocality?: string;       // District within city
+  sublocality_level_1?: string;
+  sublocality_level_2?: string;
+  sublocality_level_3?: string;
+  sublocality_level_4?: string;
+  sublocality_level_5?: string;
+  
+  // Additional location details
+  neighborhood?: string;
+  ward?: string;
+  postal_code?: string;
+  
   regions?: RegionBoundary[];
 }
 
@@ -198,7 +233,6 @@ export class LocationService {
 
   async getLocationDetails(placeId: string): Promise<Location> {
     try {
-      // First get place details
       const placeResult = await this.getPlaceDetails(placeId);
       
       if (!placeResult.geometry?.location) {
@@ -213,13 +247,74 @@ export class LocationService {
         place_id: placeId
       };
 
-      // Then get regions that contain this location
+      // Process address components
+      placeResult.address_components?.forEach(component => {
+        const value = component.long_name;
+        const shortValue = component.short_name;
+
+        component.types.forEach(type => {
+          switch (type) {
+            case 'country':
+              location.country = value;
+              location.country_code = shortValue;
+              break;
+            case 'administrative_area_level_1':
+              location.administrative_area_level_1 = value;
+              location.administrative_area_level_1_code = shortValue;
+              break;
+            case 'administrative_area_level_2':
+              location.administrative_area_level_2 = value;
+              break;
+            case 'administrative_area_level_3':
+              location.administrative_area_level_3 = value;
+              break;
+            case 'administrative_area_level_4':
+              location.administrative_area_level_4 = value;
+              break;
+            case 'administrative_area_level_5':
+              location.administrative_area_level_5 = value;
+              break;
+            case 'locality':
+              location.locality = value;
+              break;
+            case 'sublocality':
+              location.sublocality = value;
+              break;
+            case 'sublocality_level_1':
+              location.sublocality_level_1 = value;
+              break;
+            case 'sublocality_level_2':
+              location.sublocality_level_2 = value;
+              break;
+            case 'sublocality_level_3':
+              location.sublocality_level_3 = value;
+              break;
+            case 'sublocality_level_4':
+              location.sublocality_level_4 = value;
+              break;
+            case 'sublocality_level_5':
+              location.sublocality_level_5 = value;
+              break;
+            case 'neighborhood':
+              location.neighborhood = value;
+              break;
+            case 'ward':
+              location.ward = value;
+              break;
+            case 'postal_code':
+              location.postal_code = value;
+              break;
+          }
+        });
+      });
+
+      // Get regions that contain this location
       const regions = await this.findRegionsForLocation(new google.maps.LatLng(location.lat, location.lng));
-      
       if (regions.length > 0) {
         location.regions = regions;
       }
 
+      console.log('Detailed location:', location);
       return location;
     } catch (error) {
       console.error('Error getting location details:', error);
@@ -232,7 +327,12 @@ export class LocationService {
       this.placesService.getDetails(
         {
           placeId: placeId,
-          fields: ['formatted_address', 'geometry', 'place_id', 'address_components']
+          fields: [
+            'formatted_address',
+            'geometry',
+            'place_id',
+            'address_components'
+          ]
         },
         (result, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && result) {
