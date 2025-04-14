@@ -1,6 +1,25 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../environments/environment';
+import {
+  getStateFipsCode,
+  getCountyFipsCode,
+  isStateCode,
+  isCountyFipsCode,
+  isFullFipsCode,
+  parseFullFipsCode,
+  getFullFipsCode,
+  getStateByFipsCode,
+  getStateRegion,
+  US_REGIONS
+} from './region-codes';
+
+export interface RegionBoundary {
+  placeId: string;
+  name: string;
+  regionType: string;  // e.g., 'country', 'administrative_area_level_1', etc.
+  fipsCode?: string;   // For US states and counties
+}
 
 export interface Location {
   address: string;
@@ -35,9 +54,14 @@ export interface Location {
   sublocality?: string;       // District within city
   postal_code?: string;
   
+  // Region specific codes
+  fips_state?: string;        // US State FIPS code
+  fips_county?: string;       // US County FIPS code
+  
   // Additional helpful fields for region identification
   political_divisions?: string[];  // All political divisions found
   area_types?: string[];          // All types of areas found
+  region_boundaries?: RegionBoundary[];  // Associated region boundaries
 }
 
 @Injectable({
@@ -89,6 +113,112 @@ export class LocationService {
     }
   }
 
+  // Look up a region by name or FIPS code
+  async lookupRegion(query: string, regionType?: string): Promise<RegionBoundary | null> {
+    try {
+      let searchQuery = query;
+      let searchType = regionType;
+
+      // Handle FIPS code lookups
+      if (!regionType) {
+        if (isStateCode(query)) {
+          const fipsCode = getStateFipsCode(query);
+          if (fipsCode) {
+            searchQuery = `US-${query}`;
+            searchType = 'administrative_area_level_1';
+          }
+        } else if (isFullFipsCode(query)) {
+          const parsed = parseFullFipsCode(query);
+          if (parsed) {
+            const stateCode = getStateByFipsCode(parsed.state);
+            if (stateCode) {
+              searchQuery = `US-${stateCode}`;
+              searchType = 'administrative_area_level_2';
+            }
+          }
+        }
+      }
+
+      const request = {
+        query: searchQuery,
+        regionType: searchType,
+        fields: ['place_id', 'name', 'types', 'geometry']
+      };
+
+      const response = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
+        const service = new google.maps.places.PlacesService(document.createElement('div'));
+        service.findPlaceFromQuery(
+          request as google.maps.places.FindPlaceFromQueryRequest,
+          (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+              resolve(results[0]);
+            } else {
+              reject(new Error('Region lookup failed'));
+            }
+          }
+        );
+      });
+
+      const boundary: RegionBoundary = {
+        placeId: response.place_id!,
+        name: response.name!,
+        regionType: response.types?.[0] || 'unknown'
+      };
+
+      // Add FIPS codes if applicable
+      if (isStateCode(query)) {
+        boundary.fipsCode = getStateFipsCode(query);
+      } else if (isFullFipsCode(query)) {
+        boundary.fipsCode = query;
+      }
+
+      return boundary;
+    } catch (error) {
+      console.error('Error looking up region:', error);
+      return null;
+    }
+  }
+
+  // Search for regions containing a specific location
+  async findRegionsForLocation(location: google.maps.LatLng | string): Promise<RegionBoundary[]> {
+    try {
+      const results = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+        this.geocoder.geocode(
+          typeof location === 'string' ? { address: location } : { location },
+          (results, status) => {
+            if (status === google.maps.GeocoderStatus.OK && results) {
+              resolve(results);
+            } else {
+              reject(new Error('Region search failed'));
+            }
+          }
+        );
+      });
+
+      const regions: RegionBoundary[] = [];
+      
+      results.forEach(result => {
+        result.address_components?.forEach(component => {
+          if (component.types.some(type => 
+              type.includes('administrative_area_level_') || 
+              type === 'country' || 
+              type === 'locality')) {
+            regions.push({
+              placeId: result.place_id,
+              name: component.long_name,
+              regionType: component.types[0]
+            });
+          }
+        });
+      });
+
+      return regions;
+    } catch (error) {
+      console.error('Error finding regions:', error);
+      return [];
+    }
+  }
+
   async getLocationDetails(placeId: string): Promise<Location> {
     try {
       const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
@@ -103,9 +233,6 @@ export class LocationService {
           }
         );
       });
-
-      // Log raw data for debugging
-      console.log('Raw geocoding result:', result);
 
       // Collect all political divisions and area types
       const politicalDivisions: string[] = [];
@@ -137,6 +264,43 @@ export class LocationService {
         administrativeLevels[level] = findAddressComponent([level]);
       }
 
+      // Get FIPS codes for US locations
+      let fips_state: string | undefined;
+      let fips_county: string | undefined;
+      
+      const countryCode = findAddressComponent(['country'], true);
+      if (countryCode === 'US') {
+        const state = findAddressComponent(['administrative_area_level_1'], true);
+        const county = findAddressComponent(['administrative_area_level_2']);
+        if (state) {
+          fips_state = getStateFipsCode(state);
+          if (county && fips_state) {
+            fips_county = getCountyFipsCode(fips_state, county);
+          }
+        }
+      }
+
+      // Get associated regions
+      const regions = await this.findRegionsForLocation(result.geometry.location);
+
+      // Add FIPS codes to regions where applicable
+      regions.forEach(region => {
+        if (region.regionType === 'administrative_area_level_1' && countryCode === 'US') {
+          const stateCode = findAddressComponent(['administrative_area_level_1'], true);
+          if (stateCode) {
+            region.fipsCode = getStateFipsCode(stateCode);
+          }
+        } else if (region.regionType === 'administrative_area_level_2' && countryCode === 'US') {
+          const county = findAddressComponent(['administrative_area_level_2']);
+          if (county && fips_state) {
+            const countyFips = getCountyFipsCode(fips_state, county);
+            if (countyFips) {
+              region.fipsCode = getFullFipsCode(fips_state, countyFips);
+            }
+          }
+        }
+      });
+
       const location: Location = {
         address: result.formatted_address,
         formatted_address: result.formatted_address,
@@ -161,23 +325,15 @@ export class LocationService {
         sublocality: findAddressComponent(['sublocality']),
         postal_code: findAddressComponent(['postal_code']),
 
+        // Region codes
+        fips_state,
+        fips_county,
+
         // Store all political divisions and area types
         political_divisions: politicalDivisions,
-        area_types: areaTypes
+        area_types: areaTypes,
+        region_boundaries: regions
       };
-
-      // Log processed data
-      console.log('Processed location details:', {
-        political_divisions: location.political_divisions,
-        area_types: location.area_types,
-        administrative_levels: {
-          level1: location.administrative_area_level_1,
-          level2: location.administrative_area_level_2,
-          level3: location.administrative_area_level_3,
-          level4: location.administrative_area_level_4,
-          level5: location.administrative_area_level_5
-        }
-      });
 
       return location;
     } catch (error) {
