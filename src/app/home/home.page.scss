@@ -42,38 +42,47 @@ ion-list {
 }
 
 ion-content {
-  --background: #f4f5f8;
+  --background: transparent;
 }
 
 .search-container {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
+  padding: 10px;
+  pointer-events: none;
+  
+  ion-searchbar, ion-list {
+    pointer-events: auto;
+  }
 }
 
 ion-searchbar {
-  padding: 10px;
-  --background: #ffffff;
+  --background: rgba(255, 255, 255, 0.9);
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .search-results {
-  position: absolute;
-  width: 100%;
-  max-height: 50vh;
-  overflow-y: auto;
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  margin: 0 10px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .location-details {
   margin: 10px;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
   ion-item {
-    --padding-start: 0;
-    --inner-padding-end: 0;
+    --background: transparent;
+    --padding-start: 16px;
+    --inner-padding-end: 16px;
   }
 
   h2 {
@@ -82,14 +91,37 @@ ion-searchbar {
     margin-bottom: 8px;
   }
 
+  h3 {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 12px 0 8px;
+    color: var(--ion-color-dark);
+  }
+
   p {
     font-size: 14px;
     color: var(--ion-color-medium);
     margin: 4px 0;
   }
 
-  ion-range {
-    padding: 8px 0;
+  .region-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ion-color-light);
+
+    p {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      span {
+        font-size: 12px;
+        color: var(--ion-color-medium);
+        background: var(--ion-color-light);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+    }
   }
 }
 
@@ -107,5 +139,4 @@ capacitor-google-map {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
 }
