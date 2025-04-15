@@ -4,7 +4,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GoogleMap } from '@capacitor/google-maps';
 import { environment } from '../../environments/environment';
-import { LocationService } from '../services/location.service';
 import { SearchbarCustomEvent } from '@ionic/angular';
 
 @Component({
@@ -49,7 +48,7 @@ export class HomePage {
     };
   } | null = null;
 
-  constructor(private locationService: LocationService) {}
+  constructor() {}
 
   // Add helper methods to get specific region information
   getRegionType(): string {
