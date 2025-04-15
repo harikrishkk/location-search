@@ -4,7 +4,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GoogleMap } from '@capacitor/google-maps';
 import { environment } from '../../environments/environment';
-import { SearchbarCustomEvent } from '@ionic/angular';
 
 @Component({
   selector: 'app-home',
@@ -17,12 +16,8 @@ import { SearchbarCustomEvent } from '@ionic/angular';
 export class HomePage {
   @ViewChild('map') mapRef!: ElementRef;
   map: GoogleMap | null = null;
-  currentMarkerId: string | null = null;
   currentPolygonId: string | null = null;
-  searchResults: google.maps.places.AutocompletePrediction[] = [];
   searchQuery = '';
-  
-  // Add a property to store the current region details
   selectedRegionDetails: {
     formattedAddress: string;
     placeId: string;
@@ -50,70 +45,6 @@ export class HomePage {
 
   constructor() {}
 
-  // Add helper methods to get specific region information
-  getRegionType(): string {
-    if (!this.selectedRegionDetails?.types) return 'unknown';
-    
-    if (this.selectedRegionDetails.types.includes('country')) {
-      return 'country';
-    } else if (this.selectedRegionDetails.types.includes('administrative_area_level_1')) {
-      return 'state';
-    } else if (this.selectedRegionDetails.types.includes('locality')) {
-      return 'city';
-    } else if (this.selectedRegionDetails.types.includes('postal_code')) {
-      return 'postal_code';
-    }
-    return 'unknown';
-  }
-
-  getRegionName(): string {
-    if (!this.selectedRegionDetails?.addressComponents) return '';
-
-    const regionType = this.getRegionType();
-    let component;
-
-    switch (regionType) {
-      case 'country':
-        component = this.selectedRegionDetails.addressComponents.find(
-          comp => comp.types.includes('country')
-        );
-        break;
-      case 'state':
-        component = this.selectedRegionDetails.addressComponents.find(
-          comp => comp.types.includes('administrative_area_level_1')
-        );
-        break;
-      case 'city':
-        component = this.selectedRegionDetails.addressComponents.find(
-          comp => comp.types.includes('locality')
-        );
-        break;
-      case 'postal_code':
-        component = this.selectedRegionDetails.addressComponents.find(
-          comp => comp.types.includes('postal_code')
-        );
-        break;
-    }
-
-    return component?.longName || '';
-  }
-
-  getRegionArea(): number {
-    if (!this.selectedRegionDetails?.viewport) return 0;
-    
-    const { northeast, southwest } = this.selectedRegionDetails.viewport;
-    const latDiff = Math.abs(northeast.lat - southwest.lat);
-    const lngDiff = Math.abs(northeast.lng - southwest.lng);
-    
-    // Rough approximation of area in square kilometers
-    // Note: This is a simplified calculation, not accounting for Earth's curvature
-    const areaKm = latDiff * lngDiff * 111.32 * 111.32 * Math.cos(
-      (northeast.lat + southwest.lat) / 2 * Math.PI / 180
-    );
-    
-    return Math.round(areaKm);
-  }
-
   async ngAfterViewInit() {
     if (!this.mapRef) return;
 
@@ -131,89 +62,30 @@ export class HomePage {
     });
   }
 
-  async onSearchChange(event: SearchbarCustomEvent) {
-    const query = event.detail.value;
-    if (!query) {
-      this.searchResults = [];
-      return;
-    }
+  async searchRegion() {
+    if (!this.map || !this.searchQuery.trim()) return;
 
     try {
-      const autocompleteService = new google.maps.places.AutocompleteService();
-      const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-        autocompleteService.getPlacePredictions(
-          {
-            input: query,
-            types: ['(regions)'] // This will include countries, states, cities, and postal codes
-          },
+      // Get geocoded result
+      const geocoder = new google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
+        geocoder.geocode(
+          { address: this.searchQuery },
           (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-              resolve(results);
+            if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
+              resolve(results[0]);
             } else {
-              resolve([]);
+              reject(new Error('Region not found'));
             }
           }
         );
       });
-      this.searchResults = predictions;
-    } catch (error) {
-      console.error('Error searching for address:', error);
-    }
-  }
 
-  private calculateZoomLevel(viewport: google.maps.LatLngBounds): number {
-    const WORLD_DIM = { height: 256, width: 256 };
-    const ZOOM_MAX = 21;
-
-    function latRad(lat: number) {
-      const sin = Math.sin(lat * Math.PI / 180);
-      const radX2 = Math.log((1 + sin) / (1 - sin)) / 2;
-      return Math.max(Math.min(radX2, Math.PI), -Math.PI) / 2;
-    }
-
-    function zoom(mapPx: number, worldPx: number, fraction: number) {
-      return Math.floor(Math.log(mapPx / worldPx / fraction) / Math.LN2);
-    }
-
-    const ne = viewport.getNorthEast();
-    const sw = viewport.getSouthWest();
-
-    const latFraction = (latRad(ne.lat()) - latRad(sw.lat())) / Math.PI;
-    const lngDiff = ne.lng() - sw.lng();
-    const lngFraction = ((lngDiff < 0) ? (lngDiff + 360) : lngDiff) / 360;
-
-    const latZoom = zoom(400, WORLD_DIM.height, latFraction);
-    const lngZoom = zoom(800, WORLD_DIM.width, lngFraction);
-
-    const calculatedZoom = Math.min(latZoom, lngZoom, ZOOM_MAX);
-    // Adjust zoom level slightly to give some padding
-    return Math.max(calculatedZoom - 0.5, 0);
-  }
-
-  async selectLocation(prediction: google.maps.places.AutocompletePrediction) {
-    if (!this.map) return;
-
-    try {
       // Remove existing polygon
       if (this.currentPolygonId) {
         await this.map.removePolygons([this.currentPolygonId]);
         this.currentPolygonId = null;
       }
-
-      // Get geocoded result
-      const geocoder = new google.maps.Geocoder();
-      const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
-        geocoder.geocode(
-          { placeId: prediction.place_id },
-          (results, status) => {
-            if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
-              resolve(results[0]);
-            } else {
-              reject(new Error('Geocoding failed'));
-            }
-          }
-        );
-      });
 
       // Store the region details
       this.selectedRegionDetails = {
@@ -241,12 +113,12 @@ export class HomePage {
         }
       };
 
-      // Log the details and some example usage
+      // Log the region details
       console.log('Region Details:', {
-        type: this.getRegionType(),
-        name: this.getRegionName(),
-        approximateAreaKm2: this.getRegionArea(),
-        fullDetails: this.selectedRegionDetails
+        address: this.selectedRegionDetails.formattedAddress,
+        components: this.selectedRegionDetails.addressComponents,
+        location: this.selectedRegionDetails.location,
+        viewport: this.selectedRegionDetails.viewport
       });
 
       // Create a polygon based on the viewport
@@ -273,23 +145,24 @@ export class HomePage {
       
       this.currentPolygonId = polygonIds[0];
 
-      // Calculate appropriate zoom level based on viewport size
-      const zoomLevel = this.calculateZoomLevel(viewport);
+      // Calculate zoom level based on viewport size
+      const latSpan = Math.abs(ne.lat() - sw.lat());
+      const lngSpan = Math.abs(ne.lng() - sw.lng());
+      const maxSpan = Math.max(latSpan, lngSpan);
+      const zoom = Math.floor(14 - Math.log2(maxSpan)); // Simple zoom calculation
 
-      // Center the map on the region with calculated zoom
+      // Center the map on the region
       await this.map.setCamera({
         coordinate: {
           lat: (ne.lat() + sw.lat()) / 2,
           lng: (ne.lng() + sw.lng()) / 2
         },
-        zoom: zoomLevel,
+        zoom: Math.min(Math.max(zoom, 2), 15), // Keep zoom between 2 and 15
         animate: true
       });
 
-      this.searchResults = [];
-      this.searchQuery = prediction.description;
     } catch (error) {
-      console.error('Error selecting location:', error);
+      console.error('Error finding region:', error);
     }
   }
 
@@ -303,7 +176,7 @@ export class HomePage {
       }
 
       this.searchQuery = '';
-      this.selectedRegionDetails = null;  // Clear the region details
+      this.selectedRegionDetails = null;
       
       await this.map.setCamera({
         coordinate: {

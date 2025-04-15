@@ -8,17 +8,10 @@
   <div class="search-container">
     <ion-searchbar
       [(ngModel)]="searchQuery"
-      placeholder="Search for a country, state, city, or ZIP code"
-      (ionInput)="onSearchChange($event)"
+      placeholder="Enter a country, state, city, or ZIP code"
+      (ionChange)="searchRegion()"
       (ionClear)="removeLocation()"
-      [debounce]="300"
     ></ion-searchbar>
-
-    <ion-list *ngIf="searchResults.length > 0" class="search-results">
-      <ion-item button *ngFor="let result of searchResults" (click)="selectLocation(result)">
-        <ion-label>{{ result.description }}</ion-label>
-      </ion-item>
-    </ion-list>
   </div>
 
   <capacitor-google-map #map></capacitor-google-map>
