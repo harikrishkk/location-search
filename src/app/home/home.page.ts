@@ -62,6 +62,23 @@ export class HomePage {
     });
   }
 
+  private calculateZoomLevel(ne: google.maps.LatLng, sw: google.maps.LatLng): number {
+    const PADDING_FACTOR = 1.2; // Add 20% padding around the boundary
+    
+    const latDiff = Math.abs(ne.lat() - sw.lat()) * PADDING_FACTOR;
+    const lngDiff = Math.abs(ne.lng() - sw.lng()) * PADDING_FACTOR;
+    
+    // Calculate zoom based on the larger difference to ensure entire boundary is visible
+    const maxDiff = Math.max(latDiff, lngDiff);
+    
+    // This formula gives us a zoom level that will show the entire region
+    // The constants are tuned to provide good visibility across different region sizes
+    const zoom = Math.floor(Math.log2(360 / maxDiff)) + 1;
+    
+    // Ensure zoom stays within reasonable bounds
+    return Math.min(Math.max(zoom, 2), 15);
+  }
+
   async searchRegion() {
     if (!this.map || !this.searchQuery.trim()) return;
 
@@ -145,19 +162,16 @@ export class HomePage {
       
       this.currentPolygonId = polygonIds[0];
 
-      // Calculate zoom level based on viewport size
-      const latSpan = Math.abs(ne.lat() - sw.lat());
-      const lngSpan = Math.abs(ne.lng() - sw.lng());
-      const maxSpan = Math.max(latSpan, lngSpan);
-      const zoom = Math.floor(14 - Math.log2(maxSpan)); // Simple zoom calculation
+      // Calculate zoom level to show entire boundary with padding
+      const zoom = this.calculateZoomLevel(ne, sw);
 
-      // Center the map on the region
+      // Center the map on the region with calculated zoom
       await this.map.setCamera({
         coordinate: {
           lat: (ne.lat() + sw.lat()) / 2,
           lng: (ne.lng() + sw.lng()) / 2
         },
-        zoom: Math.min(Math.max(zoom, 2), 15), // Keep zoom between 2 and 15
+        zoom: zoom,
         animate: true
       });
 
