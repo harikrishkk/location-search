@@ -138,6 +138,34 @@ export class HomePage {
         viewport: this.selectedRegionDetails.viewport
       });
 
+      // Extract and log detailed location components
+      const detailedComponents: Record<string, string> = {};
+      
+      // Map of component types we want to extract
+      const componentTypes = [
+        'locality',
+        'sublocality',
+        'sublocality_level_1',
+        'sublocality_level_2',
+        'administrative_area_level_1',
+        'administrative_area_level_2',
+        'administrative_area_level_3',
+        'ward',
+        'neighborhood',
+        'postal_code',
+        'country'
+      ];
+
+      this.selectedRegionDetails.addressComponents.forEach(component => {
+        component.types.forEach(type => {
+          if (componentTypes.includes(type)) {
+            detailedComponents[type] = component.longName;
+          }
+        });
+      });
+
+      console.log('Detailed Location Components:', detailedComponents);
+
       // Create a polygon based on the viewport
       const viewport = result.geometry.viewport;
       const ne = viewport.getNorthEast();
